@@ -128,7 +128,12 @@ textarea{resize:none}
 .file-dl{color:var(--accent);flex-shrink:0}
 .file-dl svg{width:16px;height:16px}
 
-/* Typing indicator */
+/* Action buttons */
+.msg-wrapper{display:contents}
+.msg-act-row{display:flex;padding:2px 0 6px 36px;gap:6px}
+.msg-act-row.self{flex-direction:row-reverse;padding:2px 36px 6px 0}
+.msg-act-btn{display:flex;align-items:center;gap:5px;background:none;border:1px solid var(--border2);border-radius:100px;padding:4px 10px;font-size:11px;color:var(--txt3);transition:.18s;cursor:pointer;font-family:var(--font)}
+.msg-act-btn:hover{background:var(--bg2);color:var(--txt1);border-color:var(--border2)}
 .typing-indicator{display:flex;align-items:center;gap:8px;padding:8px 20px;color:var(--txt3);font-size:12px;min-height:32px}
 .typing-dots span{width:6px;height:6px;border-radius:50%;background:var(--txt3);display:inline-block;animation:bounce .8s infinite;margin:0 1px}
 .typing-dots span:nth-child(2){animation-delay:.15s}
@@ -621,12 +626,13 @@ function renderMessages() {
     for (const msg of messages) {
       const msgDate = formatDateLabel(msg.timestamp);
       if (msgDate !== lastDate) { area.appendChild(createDaySep(msgDate)); lastDate = msgDate; }
-      area.appendChild(createMsgRow(msg));
+      const el = createMsgRow(msg);
+      area.appendChild(el);
     }
   } else {
-    // Append only new messages
     for (const msg of newMsgs) {
-      area.appendChild(createMsgRow(msg));
+      const el = createMsgRow(msg);
+      area.appendChild(el);
     }
   }
   scrollToBottom();
@@ -640,11 +646,13 @@ function createDaySep(label) {
 
 function createMsgRow(msg) {
   const isSelf = msg.sender === currentUser.email;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'msg-wrapper';
+  wrapper.dataset.msgId = msg.id;
+
   const row = document.createElement('div');
   row.className = `msg-row ${isSelf?'self':'other'}`;
-  row.dataset.msgId = msg.id;
 
-  // Avatar
   const av = document.createElement('div');
   av.className = 'msg-avatar-placeholder'; av.textContent = getInitials(msg.senderName);
   if (isSelf) av.style.background='var(--accent)';
@@ -658,8 +666,7 @@ function createMsgRow(msg) {
     const wrap = document.createElement('div'); wrap.className = 'msg-image';
     const img = document.createElement('img');
     img.style.cssText='border-radius:10px;max-width:100%;display:block;background:var(--bg3);min-height:60px;cursor:zoom-in';
-    img.alt = msg.fileName;
-    img.loading = 'lazy';
+    img.alt = msg.fileName; img.loading = 'lazy';
     loadImageWithToken(img, msg.fileId);
     wrap.appendChild(img);
     wrap.onclick = () => openLightbox(msg.fileId);
@@ -687,7 +694,45 @@ function createMsgRow(msg) {
 
   if (isSelf) { row.appendChild(bubble); row.appendChild(av); }
   else { row.appendChild(av); row.appendChild(bubble); }
-  return row;
+  wrapper.appendChild(row);
+
+  // Action buttons row
+  const actRow = document.createElement('div');
+  actRow.className = 'msg-act-row' + (isSelf?' self':'');
+
+  if (msg.type === 'text') {
+    const btn = makeActionBtn(
+      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Sao chép`
+    );
+    btn.onclick = () => copyText(msg.content, btn);
+    actRow.appendChild(btn);
+  } else if (msg.type === 'image' || msg.type === 'file') {
+    const btn = makeActionBtn(
+      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Tải xuống`
+    );
+    btn.onclick = () => downloadFile(msg.fileId, msg.fileName);
+    actRow.appendChild(btn);
+  }
+
+  wrapper.appendChild(actRow);
+  return wrapper;
+}
+
+function makeActionBtn(html) {
+  const btn = document.createElement('button');
+  btn.className = 'msg-act-btn';
+  btn.innerHTML = html;
+  return btn;
+}
+
+async function copyText(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text);
+    const orig = btn.innerHTML;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><polyline points="20 6 9 17 4 12"/></svg>Đã sao chép`;
+    btn.style.color = 'var(--accent)';
+    setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 2000);
+  } catch { toast('Không thể sao chép', true); }
 }
 
 async function loadImageWithToken(imgEl, fileId) {
