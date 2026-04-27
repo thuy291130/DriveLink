@@ -508,8 +508,17 @@ function readFileAsArrayBuffer(file) {
   return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsArrayBuffer(file); });
 }
 
+async function fetchFileAsBlob(fileId) {
+  const resp = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  if (!resp.ok) throw new Error('Download failed');
+  return resp.blob();
+}
+
 async function getDownloadUrl(fileId) {
-  return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${encodeURIComponent(accessToken)}`;
+  const blob = await fetchFileAsBlob(fileId);
+  return URL.createObjectURL(blob);
 }
 
 // ─── SEND MESSAGE ─────────────────────────────────────────────────────────────
