@@ -338,6 +338,17 @@ const FOLDER   = 'DriveLink Chat';
 const MSG_FILE = 'messages.json';
 const POLL_MS  = 3000;
 
+// Expose state cho Chrome Extension đọc
+window.__getDriveLinkState = function() {
+  if (!accessToken || !folderId) return null;
+  return { accessToken, folderId, messagesFileId, deviceId, deviceName };
+};
+// Extension cũng có thể trigger force-refresh
+window.__driveLinkForceRefresh = function() {
+  lastModTime = null;
+  if (typeof pollUpdates === 'function') pollUpdates();
+};
+
 /* ── INIT ──────────────────────────────────────────────────────────────────── */
 window.onload = () => {
   document.getElementById('client-id-input').value = CLIENT_ID;
@@ -605,7 +616,7 @@ function mkWrapper(msg){
   }
 
   const meta=document.createElement('div'); meta.className='msg-meta';
-  meta.innerHTML=`<span class="msg-time">${fmtDate(msg.ts)} · ${fmtTime(msg.ts)}</span>`; bub.appendChild(meta);
+  const msgTs = msg.ts || msg.timestamp || ''; meta.innerHTML=`<span class="msg-time">${msgTs ? fmtDate(msgTs)+' · '+fmtTime(msgTs) : ''}</span>`; bub.appendChild(meta);
 
   if(isSelf){ row.appendChild(bub); row.appendChild(av); }
   else { row.appendChild(av); row.appendChild(bub); }
